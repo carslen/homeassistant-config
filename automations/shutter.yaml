@@ -41,7 +41,7 @@ trigger:
     at: "08:30:00"
     id: Sichtschutz Ende (Wochenende)
   - platform: template
-    value_template: "{{ states('') == \"on\" }}"
+    value_template: "{{ states('') == 'on' }}"
     id: Fenster geöffnet
     alias: Fenster geöffnet
     enabled: false

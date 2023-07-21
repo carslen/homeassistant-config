@@ -1,0 +1,227 @@
+alias: Rolladen - Sichtschutz ein
+description: Rolladenautomatik
+trigger:
+  - platform: numeric_state
+    entity_id: sensor.helligkeitssensor_lux
+    below: 200
+    id: sichtschutz_an
+  - platform: numeric_state
+    entity_id: sensor.helligkeitssensor_lux
+    below: 5
+    id: teilweise_geschlossen
+  - platform: state
+    entity_id:
+      - binary_sensor.hmip_swdo_i_00109a49a43ee0
+    from: "off"
+    to: "on"
+    id: lueften_auf
+  - platform: state
+    entity_id:
+      - binary_sensor.hmip_swdo_i_00109a49a43ee0
+    from: "on"
+    to: "off"
+    id: lueften_zu
+  - platform: numeric_state
+    entity_id: sensor.helligkeitssensor_lux
+    above: 50
+    id: sichtschutz_morgens
+  - platform: time
+    at: "08:00:00"
+    id: werktag_auf
+  - platform: state
+    entity_id:
+      - binary_sensor.hm_sec_sc_2_leq0756602
+    from: "off"
+    to: "on"
+    id: terrasse_auf
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 2
+  - platform: state
+    entity_id:
+      - binary_sensor.hm_sec_sc_2_leq0756602
+    from: "on"
+    to: "off"
+    id: terrasse_zu
+  - platform: template
+    value_template: >-
+      {% if is_state('binary_sensor.hm_sec_sco_oeq0228582', 'on') or
+      is_state('binary_sensor.hm_sec_sco_oeq0228498', 'on') -%}
+
+      true
+
+      {%- endif %}
+    for:
+      hours: 0
+      minutes: 0
+      seconds: 2
+    id: bad_lueften
+    enabled: true
+  - platform: time
+    at: "08:05:00"
+    id: Beschattung
+    enabled: true
+  - platform: numeric_state
+    entity_id: sensor.helligkeitssensor_lux
+    for:
+      hours: 0
+      minutes: 7
+      seconds: 0
+    below: 8500
+    id: Beschattung_ende
+condition: []
+action:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: sichtschutz_an
+          - condition: time
+            after: "16:00:00"
+        sequence:
+          - service: scene.turn_on
+            target:
+              entity_id: scene.rolladen_sichtschutz
+            metadata: {}
+      - conditions:
+          - condition: trigger
+            id: teilweise_geschlossen
+          - condition: state
+            entity_id: binary_sensor.hmip_swdo_i_00109a49a43ee0
+            state: "off"
+          - condition: state
+            entity_id: binary_sensor.hm_sec_sc_2_leq0756602
+            state: "off"
+        sequence:
+          - service: scene.turn_on
+            target:
+              entity_id: scene.rolladen_teilweise_geschlossen
+            metadata: {}
+      - conditions:
+          - condition: trigger
+            id: lueften_auf
+          - condition: numeric_state
+            entity_id: sensor.helligkeitssensor_lux
+            below: 100
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              position: 75
+            target:
+              device_id: 059c1f5176f33da0ff97d9e1c686b77f
+      - conditions:
+          - condition: trigger
+            id: lueften_zu
+          - condition: numeric_state
+            entity_id: sensor.helligkeitssensor_lux
+            below: 100
+        sequence:
+          - service: cover.set_cover_position
+            data:
+              position: 30
+            target:
+              device_id: 059c1f5176f33da0ff97d9e1c686b77f
+      - conditions:
+          - condition: trigger
+            id: sichtschutz_morgens
+          - condition: time
+            after: "05:00:00"
+        sequence:
+          - service: cover.open_cover
+            data: {}
+            target:
+              device_id:
+                - a884fd63f8a9a668774692033c508c16
+                - 311d81a01ba2897208bc74b250d91dc5
+                - 9351cea8cc6b4f22750ffd12f1c8535e
+                - 1b6707e31dc49e79622da1d0c17bace2
+      - conditions:
+          - condition: trigger
+            id: werktag_auf
+          - condition: state
+            entity_id: input_boolean.beschattung
+            state: "off"
+        sequence:
+          - service: scene.turn_on
+            target:
+              entity_id: scene.alle_rollladen_auf
+            metadata: {}
+      - conditions:
+          - condition: trigger
+            id: terrasse_auf
+          - condition: numeric_state
+            entity_id: sensor.helligkeitssensor_lux
+            below: 50
+        sequence:
+          - device_id: a884fd63f8a9a668774692033c508c16
+            domain: cover
+            entity_id: cover.rolladen_terrasse
+            type: open
+      - conditions:
+          - condition: trigger
+            id: terrasse_zu
+          - condition: numeric_state
+            entity_id: sensor.helligkeitssensor_lux
+            below: 50
+        sequence:
+          - device_id: a884fd63f8a9a668774692033c508c16
+            domain: cover
+            entity_id: cover.rolladen_terrasse
+            type: set_position
+            position: 30
+          - if:
+              - condition: device
+                type: is_on
+                device_id: 0287fe0c0453bd748eb8ebb8999aa077
+                entity_id: light.terrassenlicht_haus
+                domain: light
+              - condition: device
+                type: is_on
+                device_id: 887ff8e2bcb121ef077e61a490e0746e
+                entity_id: light.lichterkette
+                domain: light
+            then:
+              - type: turn_off
+                device_id: 0287fe0c0453bd748eb8ebb8999aa077
+                entity_id: light.terrassenlicht_haus
+                domain: light
+              - type: turn_off
+                device_id: 887ff8e2bcb121ef077e61a490e0746e
+                entity_id: light.lichterkette
+                domain: light
+      - conditions:
+          - condition: trigger
+            id: bad_lueften
+            enabled: true
+          - condition: numeric_state
+            entity_id: cover.hm_lc_bl1pbu_fm_leq1028322
+            below: 100
+            attribute: current_position
+        sequence:
+          - service: scene.create
+            data:
+              scene_id: before
+              snapshot_entities:
+                - cover.hm_lc_bl1pbu_fm_leq1028322
+          - device_id: 311d81a01ba2897208bc74b250d91dc5
+            domain: cover
+            entity_id: cover.hm_lc_bl1pbu_fm_leq1028322
+            type: set_position
+            position: 70
+          - repeat:
+              until:
+                - condition: template
+                  value_template: >-
+                    {% if is_state('binary_sensor.hm_sec_sco_oeq0228582', 'off')
+                    and is_state('binary_sensor.hm_sec_sco_oeq0228498', 'off')
+                    -%}
+
+                    true
+
+                    {%- endif %}
+              sequence: []
+          - service: scene.turn_on
+            data: {}
+            target:
+              entity_id: scene.before
+mode: single

@@ -1,126 +1,80 @@
-alias: Rolladen Esszimmer
+alias: Rolladen Sofa (NEU)
 description: ""
 trigger:
   - platform: template
     value_template: >-
-      {{ states('sensor.helligkeitssensor_lux') <=
-      states('input_number.rolladen_sichtschutz_start') and
-      states('sensor.helligkeitssensor_lux') >=
-      states('input_number.rolladen_verdunklung_start') and now() >=
-      today_at('16:30') }}
-    id: Sichtschutz Start
-    alias: Sichtschutz Start (check)
-  - platform: template
-    value_template: >-
-      {{ states('sensor.helligkeitssensor_lux') <=
-      states('input_number.rolladen_verdunklung_start') and now() >=
-      today_at('16:30') }}
-    id: Verdunklung Start
-    alias: Verdunklung Start (check)
-  - platform: template
-    value_template: >-
-      {{ states('sensor.helligkeitssensor_lux') >=
-      states('input_number.rolladen_verdunklung_ende') and now() <=
-      today_at('07:59') }}
-    id: Verdunklung Ende
-    alias: Verdunklung Ende (check)
-  - platform: template
-    value_template: >-
-      {{ states('sensor.helligkeitssensor_lux') <=
-      states('input_number.rolladen_beschattung_ende') and
-      states('sensor.helligkeitssensor_lux') >
-      states('input_number.rolladen_sichtschutz_start') and
-      states('sensor.helligkeitssensor_lux') >
-      states('input_number.rolladen_verdunklung_start') }}
-    id: Beschattung Ende
-    alias: Beschattung Ende (check)
+      {{ states('sensor.helligkeitssensor_lux') | float <=
+      states('input_number.rolladen_sichtschutz_start') | float and now() >=
+      today_at('16:00') and sichtschutz }}
+    id: Start Sichtschutz
+    alias: Start Sichtschutz
   - platform: time
     at: "08:00:00"
-    id: Sichtschutz Ende (Werktag)
-  - platform: time
-    at: "08:30:00"
-    id: Sichtschutz Ende (Wochenende)
+    alias: Ende Sichtschutz (8 Uhr)
+    id: Ende Sichtschutz
   - platform: template
-    value_template: "{{ states('') == 'on' }}"
-    id: Fenster geöffnet
-    alias: Fenster geöffnet
-    enabled: false
-  - platform: numeric_state
+    value_template: >-
+      {{ states('sensor.helligkeitssensor_lux') | float <=
+      states('input_number.rolladen_verdunklung_start') | float and now() >=
+      today_at('16:30') and verdunklung }}
+    id: Start Verdunklung
+    alias: Start Verdunklung
+  - platform: template
+    value_template: >-
+      {{ states('sensor.helligkeitssensor_lux') | float >=
+      states('input_number.rolladen_verdunklung_ende') | float and now() <
+      today_at('08:00') and not sichtschutz }}
+    alias: Ende Verdunklung
+    id: Ende Verdunklung
+  - platform: template
+    value_template: >-
+      {{ states('sensor.helligkeitssensor_lux') | float <=
+      states('input_number.rolladen_beschattung_ende') | float }}
+    alias: Ende Beschattung
+    id: Ende Beschattung
+    for:
+      hours: 0
+      minutes: 15
+      seconds: 0
+  - platform: state
     entity_id:
-      - sensor.lumi_lumi_weather_temperature_2
+      - binary_sensor.fenster_wohnzimmer_sofa
+    to: "on"
+    alias: Fenster offen
+    from: "off"
+    id: Fenster offen
+  - platform: numeric_state
+    entity_id: sensor.lumi_lumi_weather_temperature_2
     below: 0
-    id: Frost
-condition: null
+    alias: Frost
+    id: Start Frost
+condition: []
 action:
   - choose:
       - conditions:
           - condition: trigger
             id:
-              - Verdunklung Start
-          - condition: template
-            value_template: "{{ verdunklung == true }}"
-            alias: Check var 'verdunklung' == true
+              - Start Sichtschutz
         sequence:
           - if:
-              - type: is_open
-                condition: device
-                device_id: 6e1fba6418ac3d188c9c1122f7877e36
-                entity_id: 249f30eea77b742640cd41a1e5d70988
-                domain: binary_sensor
+              - condition: state
+                entity_id: binary_sensor.fenster_wohnzimmer_sofa
+                state: "on"
             then:
-              - repeat:
-                  until:
-                    - type: is_not_open
-                      condition: device
-                      device_id: 6e1fba6418ac3d188c9c1122f7877e36
-                      entity_id: 249f30eea77b742640cd41a1e5d70988
-                      domain: binary_sensor
-                  sequence:
-                    - delay:
-                        hours: 0
-                        minutes: 0
-                        seconds: 10
-                        milliseconds: 0
-            enabled: false
-          - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
+              - wait_for_trigger:
+                  - platform: state
+                    entity_id:
+                      - binary_sensor.fenster_wohnzimmer_sofa
+                    to: "off"
+          - device_id: 1b6707e31dc49e79622da1d0c17bace2
             domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
+            entity_id: ebdf12b2fafce5b20780973c7b60e546
             type: set_position
-            position: 25
+            position: 35
       - conditions:
           - condition: trigger
             id:
-              - Verdunklung Ende
-          - condition: template
-            value_template: "{{ sichtschutz == false }}"
-            alias: Check var 'sichtschutz' == false
-        sequence:
-          - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
-            domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
-            type: open
-      - conditions:
-          - condition: trigger
-            id:
-              - Sichtschutz Start
-          - condition: template
-            value_template: "{{ sichtschutz == true }}"
-            alias: Check var 'sichtschutz' == true
-        sequence:
-          - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
-            domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
-            type: set_position
-            position: 25
-      - conditions:
-          - condition: trigger
-            id:
-              - Sichtschutz Ende (Werktag)
-          - condition: template
-            value_template: >-
-              {{ sichtschutz == true and is_state('input_boolean.beschattung',
-              false) }}
-            alias: Check var 'sichtschutz' == true and bool Beschattung = false
+              - Ende Sichtschutz
         sequence:
           - if:
               - condition: time
@@ -133,87 +87,82 @@ action:
                   minutes: 30
                   seconds: 0
                   milliseconds: 0
-              - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
-                domain: cover
-                entity_id: ea9d295c19929745a5ac2daf9d93ce06
-                type: open
-            else:
-              - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
-                domain: cover
-                entity_id: ea9d295c19929745a5ac2daf9d93ce06
-                type: open
-      - conditions:
-          - condition: trigger
-            id:
-              - Sichtschutz Ende (Werktag)
-          - condition: state
-            entity_id: input_boolean.beschattung
-            state: "on"
-        sequence:
-          - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
+          - device_id: 1b6707e31dc49e79622da1d0c17bace2
             domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
-            type: set_position
-            position: 25
-      - conditions:
-          - condition: trigger
-            id:
-              - Beschattung Ende
-        sequence:
-          - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
-            domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
+            entity_id: ebdf12b2fafce5b20780973c7b60e546
             type: open
       - conditions:
           - condition: trigger
             id:
-              - Fenster geöffnet
-          - condition: device
-            device_id: 9351cea8cc6b4f22750ffd12f1c8535e
-            domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
-            type: is_position
-            below: 80
+              - Start Verdunklung
         sequence:
-          - service: scene.create
-            data:
-              scene_id: cover_kueche_links
-              snapshot_entities:
-                - cover.hm_lc_bl1pbu_fm_leq1028241
-          - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
+          - if:
+              - condition: state
+                entity_id: binary_sensor.fenster_wohnzimmer_sofa
+                state: "on"
+            then:
+              - wait_for_trigger:
+                  - platform: state
+                    entity_id:
+                      - binary_sensor.fenster_wohnzimmer_sofa
+                    to: "off"
+          - device_id: 1b6707e31dc49e79622da1d0c17bace2
             domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
+            entity_id: ebdf12b2fafce5b20780973c7b60e546
             type: set_position
-            position: 80
-          - repeat:
-              until:
-                - condition: and
-                  conditions:
-                    - type: is_not_open
-                      condition: device
-                      device_id: 6e1fba6418ac3d188c9c1122f7877e36
-                      entity_id: 249f30eea77b742640cd41a1e5d70988
-                      domain: binary_sensor
-              sequence:
-                - delay:
-                    hours: 0
-                    minutes: 0
-                    seconds: 10
-                    milliseconds: 0
-          - service: scene.turn_on
-            data: {}
-            target:
-              entity_id: scene.cover_kueche_links
+            position: 30
       - conditions:
           - condition: trigger
             id:
-              - Frost
+              - Ende Verdunklung
         sequence:
-          - device_id: 9351cea8cc6b4f22750ffd12f1c8535e
+          - device_id: 1b6707e31dc49e79622da1d0c17bace2
             domain: cover
-            entity_id: ea9d295c19929745a5ac2daf9d93ce06
-            type: close
+            entity_id: ebdf12b2fafce5b20780973c7b60e546
+            type: open
+      - conditions:
+          - condition: trigger
+            id:
+              - Ende Beschattung
+        sequence:
+          - device_id: 1b6707e31dc49e79622da1d0c17bace2
+            domain: cover
+            entity_id: ebdf12b2fafce5b20780973c7b60e546
+            type: open
+      - conditions:
+          - condition: trigger
+            id:
+              - Fenster offen
+        sequence:
+          - if:
+              - condition: device
+                device_id: 1b6707e31dc49e79622da1d0c17bace2
+                domain: cover
+                entity_id: ebdf12b2fafce5b20780973c7b60e546
+                type: is_position
+                below: 80
+            then:
+              - service: scene.create
+                data:
+                  scene_id: before_cover_kue_links
+                  snapshot_entities:
+                    - cover.eg_az
+              - device_id: 1b6707e31dc49e79622da1d0c17bace2
+                domain: cover
+                entity_id: ebdf12b2fafce5b20780973c7b60e546
+                type: set_position
+                position: 80
+              - wait_for_trigger:
+                  - platform: state
+                    entity_id:
+                      - binary_sensor.fenster_wohnzimmer_sofa
+                    to: "off"
+              - service: scene.turn_on
+                data: {}
+                target:
+                  entity_id: scene.before_cover_kue_links
+    enabled: true
 mode: single
-variables:
+trigger_variables:
   sichtschutz: false
   verdunklung: false

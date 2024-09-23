@@ -20,9 +20,8 @@ trigger:
   - platform: template
     value_template: >-
       {{ states('sensor.helligkeitssensor_lux') >=
-      states('input_number.rolladen_verdunklung_ende') and
-      is_state('input_boolean.beschattung', false) and now() >=
-      today_at('05:00') }}
+      states('input_number.rolladen_verdunklung_ende') and now() <=
+      today_at('07:59') }}
     id: Verdunklung Ende
     alias: Verdunklung Ende (check)
   - platform: template

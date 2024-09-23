@@ -1,0 +1,208 @@
+esphome:
+  name: psram-test
+  friendly_name: PSRAM Test
+  # on_boot:
+  #   then:
+  #     - light.turn_on:
+  #         id: back_light
+  #         brightness: 55%
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "YourAPIKeyHere"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Psram-Test Fallback Hotspot"
+    password: "YourFallBackPassWordHere"
+
+captive_portal:
+
+web_server:
+  version: 2
+
+spi:
+  - clk_pin: 15
+    mosi_pin: 7
+    miso_pin: 17
+    id: spi_display
+
+psram:
+  mode: octal
+  speed: 80MHz
+
+display:
+  - platform: ili9xxx
+    id: 'lalaland'
+    model: ILI9488_A
+    cs_pin: 4
+    dc_pin: 6
+    reset_pin: 5
+    spi_id: spi_display
+    auto_clear_enabled: True
+    invert_display: true
+    rotation: 270°
+    pages:
+      - id: page1
+        lambda: |-
+          auto green = Color(0, 255, 0);
+          auto orange = Color(255, 153, 51);
+          auto yellow = Color(255, 255, 0);
+          auto red = Color(255, 0, 0);
+
+          // it.filled_rectangle(245, 29, 16, 5);
+          // it.rectangle(237, 34, 32, 39);
+          // it.filled_rectangle(240, 37, 26, 5, green);
+          // it.filled_rectangle(240, 44, 26, 5, green);
+          // it.filled_rectangle(240, 51, 26, 5, green);
+          // it.filled_rectangle(240, 58, 26, 5, green);
+          // it.filled_rectangle(240, 65, 26, 5, green);
+
+          it.filled_rectangle(250, 29, 16, 5);
+          it.rectangle(242, 34, 32, 39);
+          it.print(0, 0, id(ubuntu20), "Spannung: ");
+          if (id(garage_voltage).state > 7.8) {
+            it.printf(120, 0, id(ubuntu20), green, "%.2f V", id(garage_voltage).state);
+            it.filled_rectangle(245, 37, 26, 5, green);
+            it.filled_rectangle(245, 44, 26, 5, green);
+            it.filled_rectangle(245, 51, 26, 5, green);
+            it.filled_rectangle(245, 58, 26, 5, green);
+            it.filled_rectangle(245, 65, 26, 5, green);
+          }
+          else if (id(garage_voltage).state > 7.7) {
+            it.printf(120, 0, id(ubuntu20), green, "%.2f V", id(garage_voltage).state);
+            it.filled_rectangle(245, 44, 26, 5, green);
+            it.filled_rectangle(245, 51, 26, 5, green);
+            it.filled_rectangle(245, 58, 26, 5, green);
+            it.filled_rectangle(245, 65, 26, 5, green);
+          }
+          else if (id(garage_voltage).state > 7.5) {
+            it.printf(120, 0, id(ubuntu20), yellow, "%.2f V", id(garage_voltage).state);
+            it.filled_rectangle(245, 51, 26, 5, yellow);
+            it.filled_rectangle(245, 58, 26, 5, yellow);
+            it.filled_rectangle(245, 65, 26, 5, yellow);
+          }
+          else if (id(garage_voltage).state > 7.4) {
+            it.printf(120, 0, id(ubuntu20), orange, "%.2f V", id(garage_voltage).state);
+            it.filled_rectangle(245, 58, 26, 5, orange);
+            it.filled_rectangle(245, 65, 26, 5, orange);
+          }
+          else {
+            it.printf(120, 0, id(ubuntu20), red, "%.2f V", id(garage_voltage).state);
+            it.filled_rectangle(245, 65, 26, 5, red);
+          };
+
+          it.printf(0, 24, id(ubuntu20), "Strom: ");
+          if (id(garage_current).state >= 0 || id(garage_current).state < 2.0) {
+            it.printf(120, 24, id(ubuntu20), green, "%.2f A", id(garage_current).state);
+          }
+          else if (id(garage_current).state > 2.0 || id(garage_current).state <= 2.75) {
+            it.printf(120, 24, id(ubuntu20), orange, "%.2f A", id(garage_current).state);
+          }
+          else {
+            it.printf(120, 24, id(ubuntu20), red, "%.2f A", id(garage_current).state);
+          };
+
+          it.printf(0, 48, id(ubuntu20), "Leistung: ");
+          it.printf(120, 48, id(ubuntu20), "%.2f W", id(garage_power).state);
+          
+          it.printf(0, 72, id(ubuntu20), "Helligkeit: ");
+          it.printf(120, 72, id(ubuntu20), "%.0f lux", id(helligkeit).state);
+      - id: page2
+        lambda: |-
+          it.print(160, 20, id(ubuntu20), TextAlign::CENTER, "Hello World!");
+          it.graph(10, 30, id(single_temperature_graph));
+
+graph:
+  # Show bare-minimum auto-ranged graph
+  - id: single_temperature_graph
+    sensor: az_temperature
+    duration: 1h
+    line_thickness: 2
+    width: 300
+    height: 100
+
+interval:
+  - interval: 5s
+    then:
+      - display.page.show_next: lalaland
+
+font:
+  !include fonts/ubuntu.yaml
+
+# Define a PWM output on the ESP32
+output:
+  - platform: ledc
+    pin: 16
+    id: gpio_backlight_pwm
+
+# Define a monochromatic, dimmable light for the backlight
+light:
+  - platform: monochromatic
+    output: gpio_backlight_pwm
+    name: "Display Backlight"
+    id: back_light
+    restore_mode: RESTORE_DEFAULT_ON
+
+button:
+  - platform: restart
+    name: "Restart"
+
+sensor:
+  - platform: homeassistant
+    entity_id: sensor.garage_voltage
+    id: 'garage_voltage'
+  - platform: homeassistant
+    entity_id: sensor.garage_current
+    id: 'garage_current'
+  - platform: homeassistant
+    entity_id: sensor.garage_power
+    id: 'garage_power'
+  - platform: homeassistant
+    entity_id: sensor.atx_bme280_temperature
+    id: 'az_temperature'
+  - platform: homeassistant
+    entity_id: sensor.helligkeitssensor_lux
+    id: 'helligkeit'
+    on_value_range:
+      - below: 150.0
+        then:
+          - light.control:
+              id: back_light
+              brightness: 35%
+      - above: 150.0
+        below: 1000.0
+        then:
+          - light.control:
+              id: back_light
+              brightness: 65%
+      - above: 1000.0
+        below: 2000.0
+        then:
+          - light.control:
+              id: back_light
+              brightness: 70%
+      - above: 2000.0
+        below: 3000.0
+        then:
+          - light.control:
+              id: back_light
+              brightness: 80%
+      - above: 3000.0
+        then:
+          - light.control:
+              id: back_light
+              brightness: 100%
